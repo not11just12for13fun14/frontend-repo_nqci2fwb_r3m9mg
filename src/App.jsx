@@ -57,30 +57,58 @@ function usePlayers(query) {
   return { players, loading }
 }
 
-function TopBar({ stats, onSeed }) {
+function TopBar({ stats, onSeed, name, setName, onNew, onSave, onOpenLoad, formation, setFormation }) {
   return (
-    <div className="w-full flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Squad Builder 25/26</h1>
-        <p className="text-sm text-zinc-500">Drag & drop FUT-style cards to build your XI</p>
+    <div className="w-full flex flex-col gap-3">
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Squad Builder 25/26</h1>
+          <p className="text-sm text-zinc-500">Drag & drop FUT-style cards to build your XI</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-white/60 border border-zinc-200 rounded-xl px-3 py-2">
+            <span className="text-xs text-zinc-500">Players</span>
+            <span className="font-bold">{stats.players || 0}/11</span>
+          </div>
+          <div className="flex items-center gap-2 bg-white/60 border border-zinc-200 rounded-xl px-3 py-2">
+            <span className="text-xs text-zinc-500">OVR</span>
+            <span className="font-bold">{stats.avg_rating || 0}</span>
+          </div>
+          <div className="flex items-center gap-2 bg-white/60 border border-zinc-200 rounded-xl px-3 py-2">
+            <span className="text-xs text-zinc-500">Chem</span>
+            <span className="font-bold">{stats.chemistry || 0}</span>
+            <span className="text-[10px] text-zinc-500">/33</span>
+          </div>
+          <button onClick={onSeed} className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-3 py-2 shadow">
+            Load Sample Players
+          </button>
+        </div>
       </div>
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2 bg-white/60 border border-zinc-200 rounded-xl px-3 py-2">
-          <span className="text-xs text-zinc-500">Players</span>
-          <span className="font-bold">{stats.players || 0}/11</span>
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
+        <div className="flex items-center gap-2">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Squad name"
+            className="w-64 max-w-full text-sm px-3 py-2 rounded-xl border border-zinc-300 focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white"
+          />
+          <select
+            value={formation}
+            onChange={(e) => setFormation(e.target.value)}
+            className="text-sm px-3 py-2 rounded-xl border border-zinc-300 bg-white"
+          >
+            <option>4-3-3</option>
+            <option>4-2-3-1</option>
+            <option>4-4-2</option>
+            <option>3-5-2</option>
+            <option>5-3-2</option>
+          </select>
         </div>
-        <div className="flex items-center gap-2 bg-white/60 border border-zinc-200 rounded-xl px-3 py-2">
-          <span className="text-xs text-zinc-500">OVR</span>
-          <span className="font-bold">{stats.avg_rating || 0}</span>
+        <div className="flex items-center gap-2">
+          <button onClick={onNew} className="rounded-xl bg-white border border-zinc-300 hover:bg-zinc-50 text-sm px-3 py-2">New</button>
+          <button onClick={onSave} className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-3 py-2 shadow">Save</button>
+          <button onClick={onOpenLoad} className="rounded-xl bg-white border border-zinc-300 hover:bg-zinc-50 text-sm px-3 py-2">Load</button>
         </div>
-        <div className="flex items-center gap-2 bg-white/60 border border-zinc-200 rounded-xl px-3 py-2">
-          <span className="text-xs text-zinc-500">Chem</span>
-          <span className="font-bold">{stats.chemistry || 0}</span>
-          <span className="text-[10px] text-zinc-500">/33</span>
-        </div>
-        <button onClick={onSeed} className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-3 py-2 shadow">
-          Load Sample Players
-        </button>
       </div>
     </div>
   )
@@ -180,9 +208,72 @@ function SearchPanel({ onPick }) {
   )
 }
 
+function LoadPanel({ open, onClose, onLoad }) {
+  const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    const ctrl = new AbortController()
+    async function run() {
+      setLoading(true)
+      try {
+        const res = await fetch(`${API_BASE}/api/squads`, { signal: ctrl.signal })
+        const data = await res.json()
+        setItems(data)
+      } catch (e) {
+        if (e.name !== 'AbortError') console.error(e)
+      } finally {
+        setLoading(false)
+      }
+    }
+    run()
+    return () => ctrl.abort()
+  }, [open])
+
+  if (!open) return null
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center p-4 z-50">
+      <div className="bg-white w-full sm:max-w-lg rounded-2xl shadow-xl overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b">
+          <div className="font-semibold">Load Squad</div>
+          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-700">✕</button>
+        </div>
+        <div className="max-h-[60vh] overflow-auto divide-y">
+          {loading && <div className="p-4 text-sm text-zinc-500">Loading…</div>}
+          {!loading && items.length === 0 && (
+            <div className="p-4 text-sm text-zinc-500">No saved squads yet.</div>
+          )}
+          {items.map((it) => (
+            <div key={it.id} className="p-3 flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold truncate">{it.name}</div>
+                <div className="text-xs text-zinc-500">{it.formation || '4-3-3'}</div>
+              </div>
+              <button
+                onClick={() => onLoad(it)}
+                className="px-2 py-1 text-xs rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                Load
+              </button>
+            </div>
+          ))}
+        </div>
+        <div className="px-4 py-3 border-t text-right">
+          <button onClick={onClose} className="text-sm px-3 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200">Close</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   const [squad, setSquad] = useState(Array(DEFAULT_SLOTS).fill(null))
   const [stats, setStats] = useState({ players: 0, avg_rating: 0, chemistry: 0 })
+  const [name, setName] = useState('My Squad')
+  const [formation, setFormation] = useState('4-3-3')
+  const [currentId, setCurrentId] = useState(null)
+  const [showLoad, setShowLoad] = useState(false)
 
   const playerIds = useMemo(() => squad.map((p) => (p ? p.id : null)), [squad])
 
@@ -195,7 +286,6 @@ export default function App() {
       })
       const data = await res.json()
       setStats(data.stats || { players: 0, avg_rating: 0, chemistry: 0 })
-      // also sync players array to any updated info coming from backend
       if (data.players) {
         const mapped = data.players.map((p, i) => p || squad[i] || null)
         setSquad(mapped)
@@ -238,10 +328,73 @@ export default function App() {
     }
   }
 
+  function toSquadPlayersPayload() {
+    return squad
+      .map((p, idx) => (p ? { slot: idx, player_id: p.id } : null))
+      .filter(Boolean)
+  }
+
+  async function saveSquad() {
+    const payload = { name: name || 'Untitled Squad', formation, players: toSquadPlayersPayload() }
+    try {
+      if (!currentId) {
+        const res = await fetch(`${API_BASE}/api/squads`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+        const data = await res.json()
+        if (data && data.id) setCurrentId(data.id)
+        alert('Squad saved!')
+      } else {
+        const res = await fetch(`${API_BASE}/api/squads/${currentId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+        await res.json()
+        alert('Squad updated!')
+      }
+    } catch (e) {
+      console.error(e)
+      alert('Failed to save squad')
+    }
+  }
+
+  function newSquad() {
+    setSquad(Array(DEFAULT_SLOTS).fill(null))
+    setName('My Squad')
+    setFormation('4-3-3')
+    setCurrentId(null)
+  }
+
+  function loadSquad(doc) {
+    const next = Array(DEFAULT_SLOTS).fill(null)
+    ;(doc.players || []).forEach((sp) => {
+      // We'll fetch full players via recalc after setting ids
+      next[sp.slot] = { id: sp.player_id }
+    })
+    setSquad(next)
+    setName(doc.name || 'Loaded Squad')
+    setFormation(doc.formation || '4-3-3')
+    setCurrentId(doc.id)
+    setShowLoad(false)
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-cyan-50 to-sky-50">
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-        <TopBar stats={stats} onSeed={seed} />
+        <TopBar
+          stats={stats}
+          onSeed={seed}
+          name={name}
+          setName={setName}
+          onNew={newSquad}
+          onSave={saveSquad}
+          onOpenLoad={() => setShowLoad(true)}
+          formation={formation}
+          setFormation={setFormation}
+        />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
             <SquadGrid squad={squad} onDropToSlot={onDropToSlot} onClearSlot={onClearSlot} />
@@ -254,6 +407,7 @@ export default function App() {
           Tip: Drag a card from the list into any empty slot, or click Add. Chemistry is based on shared club, league, and nation.
         </div>
       </div>
+      <LoadPanel open={showLoad} onClose={() => setShowLoad(false)} onLoad={loadSquad} />
     </div>
   )
 }
